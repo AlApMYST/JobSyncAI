@@ -1,8 +1,8 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/scan-all",
-      "schedule": "*/15 * * * *"
-    }
-  ]
+    "crons":[
+        {
+            "path":"/api/cron/scan-all",
+            "schedule":"*/15 * * * *"
+        }
+    ]
 }
