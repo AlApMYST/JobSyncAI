@@ -2,11 +2,11 @@
   "crons": [
     {
       "path": "/api/cron/scan-all",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 2 * * *"
     },
     {
       "path": "/api/cron/forgotten-opportunities",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 3 * * *"
     },
     {
       "path": "/api/cron/morning-digest",
