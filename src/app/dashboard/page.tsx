@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { UserButton } from "@clerk/nextjs";
+import { formatDistanceToNow, isPast, differenceInHours } from "date-fns";
 
 interface EmailItem {
   id: string;
@@ -264,6 +265,22 @@ const normalizeStage = (stage: string | null | undefined) =>
     (knownStage) => knownStage.toLowerCase() === stage?.toLowerCase()
   ) || "Unknown";
 
+const getDeadlineDisplay = (deadline: string | null, deadlineText: string | null) => {
+  if (!deadline) return deadlineText || null;
+  const deadlineDate = new Date(deadline);
+  if (isPast(deadlineDate)) {
+    return `⚠️ EXPIRED — ${deadlineText || "deadline passed"}`;
+  }
+  const hoursLeft = differenceInHours(deadlineDate, new Date());
+  if (hoursLeft < 24) {
+    return `🔴 ${hoursLeft}h left — ${deadlineText || "deadline today"}`;
+  } else if (hoursLeft < 48) {
+    return `🟠 ${Math.floor(hoursLeft / 24)}d left — ${deadlineText || "deadline tomorrow"}`;
+  } else {
+    return `🟡 ${formatDistanceToNow(deadlineDate, { addSuffix: true })} — ${deadlineText || ""}`;
+  }
+};
+
 interface EmailAnalysis {
   is_placement_related: boolean;
   company: string | null;
@@ -343,7 +360,6 @@ export default function Dashboard() {
         console.error("Gmail status error:", error);
       }
     };
-
     loadGmailStatus();
   }, []);
 
@@ -447,7 +463,6 @@ export default function Dashboard() {
 
       {/* Header */}
       <nav className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-white/10">
-
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-sm font-bold">
             J
@@ -465,7 +480,6 @@ export default function Dashboard() {
 
         {/* LEFT — Email Feed */}
         <div className="min-h-0 border-r border-white/10 flex flex-col overflow-hidden">
-
           <div className="p-4 border-b border-white/10 space-y-3">
             <div className="flex items-center justify-between gap-3">
               <h2 className="font-semibold text-sm">
@@ -519,7 +533,6 @@ export default function Dashboard() {
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto">
-
             {emails.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center p-4">
                 <div className="text-4xl mb-3">📧</div>
@@ -535,7 +548,9 @@ export default function Dashboard() {
                     key={email.id}
                     onClick={() => analyzeEmail(email)}
                     className={`p-4 cursor-pointer hover:bg-white/5 transition ${
-                      selectedEmail?.id === email.id ? "bg-white/5 border-l-2 border-blue-500" : ""
+                      selectedEmail?.id === email.id
+                        ? "bg-white/5 border-l-2 border-blue-500"
+                        : ""
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -570,13 +585,11 @@ export default function Dashboard() {
 
         {/* MIDDLE — AI Analysis */}
         <div className="min-h-0 border-r border-white/10 flex flex-col overflow-hidden">
-
           <div className="p-4 border-b border-white/10">
             <h2 className="font-semibold text-sm">AI Analysis</h2>
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto p-4">
-
             {!selectedEmail && !analyzing && (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="text-5xl mb-4">🤖</div>
@@ -611,12 +624,10 @@ export default function Dashboard() {
                     This email does not look like a real placement opportunity.
                   </p>
                 </div>
-
                 <div className="bg-white/5 rounded-xl p-3 border border-white/10">
                   <p className="text-xs text-gray-400 mb-1">AI Summary</p>
                   <p className="text-sm">{analysis.summary}</p>
                 </div>
-
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="bg-white/5 rounded-lg p-2 border border-white/10">
                     <p className="text-gray-500">Classification</p>
@@ -632,11 +643,8 @@ export default function Dashboard() {
 
             {analysis && !analyzing && analysis.is_placement_related && (
               <div className="space-y-4">
-                {/* Confidence Badge */}
                 <div className="flex items-center justify-between">
-                  <span
-                    className={`text-xs font-bold px-2 py-1 rounded border ${getUrgencyColor(analysis.urgency)}`}
-                  >
+                  <span className={`text-xs font-bold px-2 py-1 rounded border ${getUrgencyColor(analysis.urgency)}`}>
                     {analysis.urgency} URGENCY
                   </span>
                   <span className="text-xs text-gray-400">
@@ -644,7 +652,6 @@ export default function Dashboard() {
                   </span>
                 </div>
 
-                {/* Confidence Bar */}
                 <div className="w-full bg-white/10 rounded-full h-1.5">
                   <div
                     className="bg-blue-500 h-1.5 rounded-full transition-all"
@@ -652,7 +659,6 @@ export default function Dashboard() {
                   ></div>
                 </div>
 
-                {/* Company Info */}
                 <div className="bg-white/5 rounded-xl p-4 border border-white/10">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center text-lg">
@@ -671,11 +677,11 @@ export default function Dashboard() {
                         {analysis.stage}
                       </p>
                     </div>
-                    {analysis.deadline_text && (
+                    {(analysis.deadline || analysis.deadline_text) && (
                       <div className="bg-white/5 rounded-lg p-2">
                         <p className="text-gray-500">Deadline</p>
-                        <p className="font-medium text-orange-400">
-                          {analysis.deadline_text}
+                        <p className="font-medium text-orange-400 text-xs">
+                          {getDeadlineDisplay(analysis.deadline, analysis.deadline_text)}
                         </p>
                       </div>
                     )}
@@ -687,8 +693,8 @@ export default function Dashboard() {
                     <p className="text-xs text-blue-300 mb-2">Important Links</p>
                     <div className="space-y-1">
                       {analysis.important_links.map((link) => (
-                        <a
-                          key={link}
+                        
+                       <a   key={link}
                           href={link}
                           target="_blank"
                           rel="noreferrer"
@@ -701,13 +707,11 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* Summary */}
                 <div className="bg-white/5 rounded-xl p-3 border border-white/10">
                   <p className="text-xs text-gray-400 mb-1">AI Summary</p>
                   <p className="text-sm">{analysis.summary}</p>
                 </div>
 
-                {/* Action Required */}
                 {analysis.action_required && (
                   <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-3">
                     <p className="text-xs text-orange-400 font-medium mb-1">
@@ -719,7 +723,6 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* Reply Draft Button */}
                 {analysis.reply_draft && (
                   <div>
                     <button
@@ -730,19 +733,13 @@ export default function Dashboard() {
                     </button>
                     {showReply && (
                       <div className="mt-2 bg-white/5 border border-white/10 rounded-xl p-3">
-                        <p className="text-xs text-gray-400 mb-2">
-  Draft Reply:
-</p>
-
+                        <p className="text-xs text-gray-400 mb-2">Draft Reply:</p>
                         <p className="text-xs text-gray-200 whitespace-pre-wrap">
-  {analysis.reply_draft}
-</p>
-
+                          {analysis.reply_draft}
+                        </p>
                         <button
                           onClick={() =>
-                            navigator.clipboard.writeText(
-                              analysis.reply_draft || ""
-                            )
+                            navigator.clipboard.writeText(analysis.reply_draft || "")
                           }
                           className="mt-2 text-xs text-blue-400 hover:text-blue-300"
                         >
@@ -759,7 +756,6 @@ export default function Dashboard() {
 
         {/* RIGHT — Dashboard */}
         <div className="min-h-0 flex flex-col overflow-y-auto">
-
           <div className="p-4 border-b border-white/10">
             <h2 className="font-semibold text-sm">Pipeline Dashboard</h2>
           </div>
@@ -768,63 +764,89 @@ export default function Dashboard() {
             {/* Stats */}
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
-                <div className="text-2xl font-bold text-blue-400">
-                  {stats.total}
-                </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  Total Applications
-                </div>
+                <div className="text-2xl font-bold text-blue-400">{stats.total}</div>
+                <div className="text-xs text-gray-400 mt-1">Total Applications</div>
               </div>
               <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-3">
-                <div className="text-2xl font-bold text-orange-400">
-                  {stats.actionNeeded}
-                </div>
+                <div className="text-2xl font-bold text-orange-400">{stats.actionNeeded}</div>
                 <div className="text-xs text-gray-400 mt-1">Action Needed</div>
               </div>
               <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3">
-                <div className="text-2xl font-bold text-green-400">
-                  {stats.shortlisted}
-                </div>
+                <div className="text-2xl font-bold text-green-400">{stats.shortlisted}</div>
                 <div className="text-xs text-gray-400 mt-1">Shortlisted+</div>
               </div>
               <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-3">
-                <div className="text-2xl font-bold text-purple-400">
-                  {stats.interviews}
-                </div>
+                <div className="text-2xl font-bold text-purple-400">{stats.interviews}</div>
                 <div className="text-xs text-gray-400 mt-1">Interviews</div>
               </div>
               <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
-                <div className="text-2xl font-bold text-emerald-400">
-                  {stats.offers}
-                </div>
+                <div className="text-2xl font-bold text-emerald-400">{stats.offers}</div>
                 <div className="text-xs text-gray-400 mt-1">Offers</div>
               </div>
               <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
-                <div className="text-2xl font-bold text-yellow-400">
-                  {stats.filtered}
-                </div>
+                <div className="text-2xl font-bold text-yellow-400">{stats.filtered}</div>
                 <div className="text-xs text-gray-400 mt-1">Filtered</div>
               </div>
             </div>
 
-            {/* Pipeline */}
+            {/* Upcoming Deadlines */}
+            {Object.values(analysisByEmail).some(
+              (a) => a.deadline && !isPast(new Date(a.deadline))
+            ) && (
+              <div>
+                <h3 className="text-xs text-gray-400 uppercase tracking-wider mb-3">
+                  Upcoming Deadlines
+                </h3>
+                <div className="space-y-2">
+                  {Object.values(analysisByEmail)
+                    .filter(
+                      (a) =>
+                        a.is_placement_related &&
+                        a.deadline &&
+                        !isPast(new Date(a.deadline))
+                    )
+                    .sort(
+                      (a, b) =>
+                        new Date(a.deadline!).getTime() -
+                        new Date(b.deadline!).getTime()
+                    )
+                    .slice(0, 3)
+                    .map((a, i) => (
+                      <div
+                        key={i}
+                        className="bg-white/5 border border-white/10 rounded-xl p-3"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium">{a.company}</span>
+                          <span className="text-xs text-orange-400">
+                            {differenceInHours(new Date(a.deadline!), new Date()) < 24
+                              ? `${differenceInHours(new Date(a.deadline!), new Date())}h left`
+                              : `${Math.floor(differenceInHours(new Date(a.deadline!), new Date()) / 24)}d left`}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500">{a.deadline_text}</p>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Pipeline Stages */}
             <div>
               <h3 className="text-xs text-gray-400 uppercase tracking-wider mb-3">
                 Pipeline Stages
               </h3>
-              {PIPELINE_STAGES.map(
-                (stage) => (
-                  <div
-                    key={stage}
-                    className="flex items-center justify-between py-2 border-b border-white/5"
-                  >
-                    <span className="text-sm text-gray-300">{stage}</span>
-                    <span className="text-sm font-medium text-gray-500">
-                      {stageCounts[stage]}
-                    </span>
-                  </div>
-                )
-              )}
+              {PIPELINE_STAGES.map((stage) => (
+                <div
+                  key={stage}
+                  className="flex items-center justify-between py-2 border-b border-white/5"
+                >
+                  <span className="text-sm text-gray-300">{stage}</span>
+                  <span className="text-sm font-medium text-gray-500">
+                    {stageCounts[stage]}
+                  </span>
+                </div>
+              ))}
             </div>
 
             {/* Recent Activity */}

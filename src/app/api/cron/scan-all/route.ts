@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { analyzeEmailWithAI } from "@/lib/analyze-email";
-import { fetchRecentGmailEmails, getValidGmailAccessToken } from "@/lib/gmail";
+import { fetchGmailEmailsList, fetchGmailEmailsByIds, getValidGmailAccessToken } from "@/lib/gmail";
 
 export async function GET(request: Request) {
   // Security check — only Vercel cron can call this
@@ -22,57 +22,103 @@ export async function GET(request: Request) {
 
     for (const connection of connections) {
       try {
-        const accessToken = await getValidGmailAccessToken(connection.clerkId);
-        const emails = await fetchRecentGmailEmails({
-          accessToken,
-          days: 1, // Only last 24 hours for cron
-          maxResults: 5,
+        const fullConn = await prisma.gmailConnection.findUnique({
+          where: { clerkId: connection.clerkId },
+          select: { nextPageToken: true },
         });
 
-        let scanned = 0;
-        for (const email of emails.slice(0, 3)) {
-          const analysis = await analyzeEmailWithAI({
-            emailContent: email.body.slice(0, 1500),
-            emailSubject: email.subject,
-            emailFrom: email.from,
-            emailDate: email.date,
+        const accessToken = await getValidGmailAccessToken(connection.clerkId);
+
+        // 1. Try recent emails
+        let listResponse = await fetchGmailEmailsList({
+          accessToken,
+          query: "newer_than:2d",
+          maxResults: 50,
+        });
+
+        let messageIds = listResponse.messages.map(m => m.id);
+        let existingApps = await prisma.application.findMany({
+          where: { emailId: { in: messageIds } },
+          select: { emailId: true },
+        });
+        let existingIds = new Set(existingApps.map(a => a.emailId));
+        let newIds = messageIds.filter(id => !existingIds.has(id));
+
+        // 2. If no new recent emails, paginate historical
+        if (newIds.length === 0) {
+          listResponse = await fetchGmailEmailsList({
+            accessToken,
+            maxResults: 50,
+            pageToken: fullConn?.nextPageToken || undefined,
           });
 
-          if (analysis.is_placement_related) {
-            await prisma.application.upsert({
-              where: {
-                userId_emailId: {
+          messageIds = listResponse.messages.map(m => m.id);
+          existingApps = await prisma.application.findMany({
+            where: { emailId: { in: messageIds } },
+            select: { emailId: true },
+          });
+          existingIds = new Set(existingApps.map(a => a.emailId));
+          newIds = messageIds.filter(id => !existingIds.has(id));
+
+          // Save next page token for next cron run
+          if (listResponse.nextPageToken) {
+            await prisma.gmailConnection.update({
+              where: { clerkId: connection.clerkId },
+              data: { nextPageToken: listResponse.nextPageToken },
+            });
+          }
+        }
+
+        const idsToProcess = newIds.slice(0, 3);
+        let scanned = 0;
+
+        if (idsToProcess.length > 0) {
+          const emails = await fetchGmailEmailsByIds(accessToken, idsToProcess);
+
+          for (const email of emails) {
+            const analysis = await analyzeEmailWithAI({
+              emailContent: email.body.slice(0, 1500),
+              emailSubject: email.subject,
+              emailFrom: email.from,
+              emailDate: email.date,
+            });
+
+            if (analysis.is_placement_related) {
+              await prisma.application.upsert({
+                where: {
+                  userId_emailId: {
+                    userId: connection.userId,
+                    emailId: email.id,
+                  },
+                },
+                update: {
+                  stage: analysis.stage || "Unknown",
+                  urgency: analysis.urgency || "LOW",
+                  actionRequired: analysis.action_required,
+                  summary: analysis.summary,
+                },
+                create: {
                   userId: connection.userId,
                   emailId: email.id,
+                  company: analysis.company || "Unknown",
+                  role: analysis.role,
+                  stage: analysis.stage || "Unknown",
+                  urgency: analysis.urgency || "LOW",
+                  deadline: null,
+                  actionRequired: analysis.action_required,
+                  actionDescription: analysis.action_description,
+                  contactEmail: analysis.contact_email,
+                  confidence: analysis.confidence || 0,
+                  summary: analysis.summary,
+                  fromEmail: email.from,
+                  subject: email.subject,
                 },
-              },
-              update: {
-                stage: analysis.stage || "Unknown",
-                urgency: analysis.urgency || "LOW",
-                actionRequired: analysis.action_required,
-                summary: analysis.summary,
-              },
-              create: {
-                userId: connection.userId,
-                emailId: email.id,
-                company: analysis.company || "Unknown",
-                role: analysis.role,
-                stage: analysis.stage || "Unknown",
-                urgency: analysis.urgency || "LOW",
-                deadline: null,
-                actionRequired: analysis.action_required,
-                actionDescription: analysis.action_description,
-                contactEmail: analysis.contact_email,
-                confidence: analysis.confidence || 0,
-                summary: analysis.summary,
-                fromEmail: email.from,
-                subject: email.subject,
-              },
-            });
-            scanned++;
-          }
+              });
+              scanned++;
+            }
 
-          await new Promise(resolve => setTimeout(resolve, 4000));
+            await new Promise(resolve => setTimeout(resolve, 4000));
+          }
         }
 
         results.push({ userId: connection.userId, scanned });

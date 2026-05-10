@@ -28,6 +28,29 @@ const cleanModelJson = (text: string) =>
     .replace(/```/g, "")
     .trim();
 
+const BLOCKED_URL_PATTERNS = [
+  /linkedin\.com\/comm/i,
+  /utm_/i,
+  /trackingId/i,
+  /midToken/i,
+  /otpToken/i,
+  /unsubscribe/i,
+  /click\.email/i,
+  /mailtrack/i,
+  /naukri\.com\/rateapplication/i,
+  /internshala\.com\/track/i,
+  /refId=/i,
+  /lipi=/i,
+  /trk=/i,
+];
+
+const filterLinks = (links: string[]): string[] => {
+  return links.filter((link) => {
+    if (!link.startsWith("http")) return false;
+    return !BLOCKED_URL_PATTERNS.some((pattern) => pattern.test(link));
+  });
+};
+
 export async function analyzeEmailWithAI({
   emailContent,
   emailSubject,
@@ -104,8 +127,15 @@ Email Content: ${emailContent.slice(0, 2000)}`;
   const cleanJson = cleanModelJson(responseText);
 
   try {
-    const safeJson = cleanJson.replace(/[\x00-\x1F\x7F]/g, ' ');
-    return JSON.parse(safeJson) as EmailAnalysis;
+    const safeJson = cleanJson.replace(/[\x00-\x1F\x7F]/g, " ");
+    const parsed = JSON.parse(safeJson) as EmailAnalysis;
+
+    // Filter tracking URLs from important_links
+    if (parsed.important_links && parsed.important_links.length > 0) {
+      parsed.important_links = filterLinks(parsed.important_links);
+    }
+
+    return parsed;
   } catch {
     console.error("JSON parse error:", cleanJson);
     throw new Error("AI returned invalid JSON format");

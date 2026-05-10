@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { analyzeEmailWithAI } from "@/lib/analyze-email";
-import { fetchRecentGmailEmails, getValidGmailAccessToken } from "@/lib/gmail";
+import { fetchGmailEmailsList, fetchGmailEmailsByIds, getValidGmailAccessToken } from "@/lib/gmail";
 import { prisma } from "@/lib/prisma";
 
 const parseDate = (value: string | null | undefined) => {
@@ -34,13 +34,17 @@ export async function POST() {
     }
 
     const accessToken = await getValidGmailAccessToken(userId);
-    const emails = await fetchRecentGmailEmails({
-  accessToken,
-  days: 30,
-  maxResults: 5,
-});
-const items = [];
-for (const email of emails.slice(0, 3)) {
+    const listResponse = await fetchGmailEmailsList({
+      accessToken,
+      query: "newer_than:30d",
+      maxResults: 5,
+    });
+    
+    const messageIds = listResponse.messages.map(m => m.id);
+    const emails = messageIds.length > 0 ? await fetchGmailEmailsByIds(accessToken, messageIds.slice(0, 3)) : [];
+    
+    const items = [];
+    for (const email of emails) {
   const analysis = await analyzeEmailWithAI({
     emailContent: email.body.slice(0, 1500),
     emailSubject: email.subject,

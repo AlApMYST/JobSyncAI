@@ -11,6 +11,7 @@ model User {
   id        String   @id @default(cuid())
   clerkId   String   @unique
   email     String   @unique
+  phoneNumber String?
   name      String?
   createdAt DateTime @default(now())
   applications Application[]
@@ -27,6 +28,7 @@ model GmailConnection {
   refreshToken String?
   expiresAt    DateTime?
   historyId    String?
+  nextPageToken String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }

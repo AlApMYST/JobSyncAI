@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/scan-all",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/forgotten-opportunities",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/morning-digest",
+      "schedule": "30 3 * * *"
+    }
+  ]
+}

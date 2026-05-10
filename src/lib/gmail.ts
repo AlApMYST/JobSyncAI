@@ -184,19 +184,23 @@ const getHeader = (headers: GmailHeader[] | undefined, name: string) =>
   headers?.find((header) => header.name.toLowerCase() === name.toLowerCase())
     ?.value || "";
 
-export async function fetchRecentGmailEmails({
+export async function fetchGmailEmailsList({
   accessToken,
-  days = 30,
+  query,
   maxResults = 20,
+  pageToken,
 }: {
   accessToken: string;
-  days?: number;
+  query?: string;
   maxResults?: number;
+  pageToken?: string;
 }) {
   const params = new URLSearchParams({
-    q: `newer_than:${days}d`,
     maxResults: String(maxResults),
   });
+
+  if (query) params.append("q", query);
+  if (pageToken) params.append("pageToken", pageToken);
 
   const listResponse = await fetch(
     `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params.toString()}`,
@@ -211,11 +215,18 @@ export async function fetchRecentGmailEmails({
   }
 
   const messages = (listData.messages || []) as Array<{ id: string }>;
+  
+  return {
+    messages,
+    nextPageToken: listData.nextPageToken as string | undefined,
+  };
+}
 
+export async function fetchGmailEmailsByIds(accessToken: string, messageIds: string[]) {
   const emails = await Promise.all(
-    messages.map(async (message) => {
+    messageIds.map(async (id) => {
       const response = await fetch(
-        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=full`,
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`,
         {
           headers: { Authorization: `Bearer ${accessToken}` },
         }
