@@ -5,11 +5,11 @@
       "schedule": "0 2 * * *"
     },
     {
-      "path": "/api/cron/forgotten-opportunities",
+      "path": "/api/cron/forgotten_opportunities",
       "schedule": "0 3 * * *"
     },
     {
-      "path": "/api/cron/morning-digest",
+      "path": "/api/cron/morning_digest",
       "schedule": "30 3 * * *"
     }
   ]

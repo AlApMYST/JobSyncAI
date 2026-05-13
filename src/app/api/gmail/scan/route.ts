@@ -39,19 +39,22 @@ export async function POST() {
       query: "newer_than:30d",
       maxResults: 5,
     });
-    
+
     const messageIds = listResponse.messages.map(m => m.id);
-    const emails = messageIds.length > 0 ? await fetchGmailEmailsByIds(accessToken, messageIds.slice(0, 3)) : [];
+    const emails =
+      messageIds.length > 0
+        ? await fetchGmailEmailsByIds(accessToken, messageIds.slice(0, 3))
+        : [];
     
     const items = [];
     for (const email of emails) {
-  const analysis = await analyzeEmailWithAI({
-    emailContent: email.body.slice(0, 1500),
-    emailSubject: email.subject,
-    emailFrom: email.from,
-    emailDate: email.date,
-  });
-  await new Promise(resolve => setTimeout(resolve, 4000));
+      const analysis = await analyzeEmailWithAI({
+        emailContent: email.body.slice(0, 1500),
+        emailSubject: email.subject,
+        emailFrom: email.from,
+        emailDate: email.date,
+      });
+      await new Promise(resolve => setTimeout(resolve, 4000));
 
       if (analysis.is_placement_related) {
         await prisma.application.upsert({
@@ -77,6 +80,7 @@ export async function POST() {
             fromEmail: email.from,
             subject: email.subject,
             receivedAt: parseDate(email.date),
+            rawEmail: email.body,
           },
           create: {
             userId: connection.userId,
@@ -96,6 +100,7 @@ export async function POST() {
             fromEmail: email.from,
             subject: email.subject,
             receivedAt: parseDate(email.date),
+            rawEmail: email.body,
           },
         });
       }
@@ -117,6 +122,10 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       count: items.length,
+      placementCount: items.filter((item) => item.analysis.is_placement_related)
+        .length,
+      filteredCount: items.filter((item) => !item.analysis.is_placement_related)
+        .length,
       items,
     });
   } catch (error: any) {

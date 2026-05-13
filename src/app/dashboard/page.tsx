@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { UserButton } from "@clerk/nextjs";
-import { formatDistanceToNow, isPast, differenceInHours } from "date-fns";
+import { differenceInHours, formatDistanceToNow, isPast } from "date-fns";
 
 interface EmailItem {
   id: string;
@@ -14,240 +14,24 @@ interface EmailItem {
   content: string;
 }
 
-const DEMO_EMAILS: EmailItem[] = [
-  {
-    id: "1",
-    from: "hr@razorpay.com",
-    subject: "Congratulations! Shortlisted for SDE Intern - Razorpay",
-    preview: "You have been shortlisted for the SDE Intern position...",
-    time: "2 hours ago",
-    urgent: true,
-    content: `Dear Candidate,
+interface EmailAnalysis {
+  is_placement_related: boolean;
+  company: string | null;
+  role: string | null;
+  stage: string;
+  deadline: string | null;
+  deadline_text: string | null;
+  action_required: boolean;
+  action_description: string | null;
+  urgency: string;
+  contact_email: string | null;
+  important_links?: string[];
+  confidence: number;
+  summary: string;
+  reply_draft: string | null;
+}
 
-Congratulations! We are pleased to inform you that you have been shortlisted for the Software Development Engineer Intern position at Razorpay.
-
-Please complete the attached coding assignment and submit it via this link: https://razorpay.com/careers/assignment/12345 by May 8th, 2026 at 11:59 PM IST.
-
-The assignment should take approximately 3-4 hours to complete.
-
-For any queries, please contact us at hr@razorpay.com
-
-Best regards,
-Priya Sharma
-HR Team, Razorpay`,
-  },
-  {
-    id: "2",
-    from: "placements@zerodha.com",
-    subject: "Interview Scheduled - Zerodha - May 7th 2PM IST",
-    preview: "Your technical interview has been scheduled...",
-    time: "5 hours ago",
-    urgent: true,
-    content: `Hi,
-
-Your technical interview for the Software Engineer position at Zerodha has been scheduled for May 7th, 2026 at 2:00 PM IST.
-
-Interview Format: 2 rounds
-- Round 1: Technical (Data Structures & Algorithms) - 60 mins
-- Round 2: System Design - 45 mins
-
-Meeting Link: https://meet.zerodha.com/interview/abc123
-
-Please confirm your availability by replying to this email.
-
-Regards,
-Recruitment Team
-Zerodha`,
-  },
-  {
-    id: "3",
-    from: "noreply@internshala.com",
-    subject: "New Job Application - Swiggy | Backend Developer Intern",
-    preview: "Your application has been received by Swiggy...",
-    time: "1 day ago",
-    urgent: false,
-    content: `Hi Alapan,
-
-Your application for the Backend Developer Intern position at Swiggy has been successfully submitted through InternShala.
-
-Company: Swiggy
-Role: Backend Developer Intern
-Stipend: ₹25,000/month
-Duration: 3 months
-
-You will hear back from the company within 7-10 business days.
-
-Good luck!
-Team InternShala`,
-  },
-  {
-    id: "4",
-    from: "careers@flipkart.com",
-    subject: "Update on your application - Flipkart SDE",
-    preview: "Thank you for your interest in Flipkart...",
-    time: "3 days ago",
-    urgent: false,
-    content: `Dear Applicant,
-
-Thank you for your interest in the Software Development Engineer position at Flipkart and for taking the time to apply.
-
-After careful consideration, we regret to inform you that we will not be moving forward with your application at this time.
-
-We encourage you to keep an eye on our careers page for future opportunities.
-
-Best regards,
-Talent Acquisition Team
-Flipkart`,
-  },
-  {
-    id: "5",
-    from: "hr@groww.in",
-    subject: "URGENT: Offer Letter - Groww | Please respond within 48 hours",
-    preview: "We are delighted to extend an offer...",
-    time: "18 days ago",
-    urgent: true,
-    content: `Dear Candidate,
-
-We are delighted to extend an offer for the position of Software Development Engineer at Groww.
-
-CTC: ₹12,00,000 per annum
-Joining Date: June 1st, 2026
-Location: Bangalore
-
-Please accept or decline this offer by May 7th, 2026 by signing the attached offer letter and sending it back to hr@groww.in
-
-This is a time-sensitive offer. Please respond within 48 hours.
-
-Congratulations!
-HR Team, Groww`,
-  },
-  {
-    id: "6",
-    from: "updates@unstop.com",
-    subject: "Win certificates and prizes - Coding Carnival registration closes tonight",
-    preview: "Register for the webinar and get a participation certificate...",
-    time: "2 days ago",
-    urgent: false,
-    content: `Hi there,
-
-Join our Coding Carnival webinar tonight and get a certificate of participation.
-
-Registration fee: Rs. 199
-Prizes, coupons and learning resources available for all participants.
-
-This is not a hiring process and there is no job application attached.
-
-Team Unstop`,
-  },
-  {
-    id: "7",
-    from: "recruiter@cred.club",
-    subject: "SDE Intern opportunity at CRED - quick response needed",
-    preview: "Your GitHub profile looks relevant for our backend internship...",
-    time: "3 hours ago",
-    urgent: true,
-    content: `Hi Alapan,
-
-I came across your GitHub profile and wanted to reach out for a Backend Engineering Intern opportunity at CRED.
-
-If interested, please share your resume and availability for a quick call by tomorrow EOD.
-
-Role: Backend Engineering Intern
-Location: Bangalore
-
-Best,
-Ananya
-Talent Team, CRED`,
-  },
-  {
-    id: "8",
-    from: "placementcell@college.edu",
-    subject: "Shortlisted Candidates - Meesho SDE Intern Round 1",
-    preview: "You have been shortlisted for Meesho Round 1...",
-    time: "12 hours ago",
-    urgent: true,
-    content: `Dear Student,
-
-You have been shortlisted for Round 1 of the Meesho SDE Intern hiring process through campus placements.
-
-Please fill this confirmation form before EOD tomorrow:
-https://forms.gle/meesho-round1-confirmation
-
-Round 1 will be an online coding test. Further details will be shared after confirmation.
-
-Regards,
-Placement Cell`,
-  },
-  {
-    id: "9",
-    from: "updates@naukri.com",
-    subject: "Your profile was viewed by 3 recruiters this week",
-    preview: "Improve your profile visibility with premium services...",
-    time: "4 days ago",
-    urgent: false,
-    content: `Hello,
-
-Your profile was viewed by 3 recruiters this week.
-
-Upgrade to Naukri Premium to improve visibility and get resume writing services.
-
-This is an automated promotional email. No company has invited you for an interview or assignment.
-
-Team Naukri`,
-  },
-  {
-    id: "10",
-    from: "talent@smallcase.com",
-    subject: "Take-home task for Frontend Intern application",
-    preview: "Please submit the take-home task by May 9th...",
-    time: "6 hours ago",
-    urgent: true,
-    content: `Hi,
-
-Thanks for applying to the Frontend Engineering Intern role at smallcase.
-
-We would like you to complete a take-home assignment and submit your GitHub repository link by May 9th, 2026 at 10:00 PM IST.
-
-Assignment link: https://smallcase.com/careers/frontend-intern-task
-
-Regards,
-Talent Team`,
-  },
-  {
-    id: "11",
-    from: "careers@phonepe.com",
-    subject: "Action Required: Confirm your interview slot",
-    preview: "You were selected for the next round but have not confirmed...",
-    time: "21 days ago",
-    urgent: true,
-    content: `Dear Candidate,
-
-You have been selected for the next round for the Software Engineering Intern role at PhonePe.
-
-Please confirm your interview slot using this link by April 20th, 2026:
-https://phonepe.com/careers/interview-slot/456
-
-If we do not receive your confirmation, your candidature may be closed.
-
-Regards,
-PhonePe Hiring Team`,
-  },
-  {
-    id: "12",
-    from: "hello@greatlearning.in",
-    subject: "Limited time certificate course for software jobs",
-    preview: "Enroll now and get job-ready with our paid course...",
-    time: "1 week ago",
-    urgent: false,
-    content: `Hi Student,
-
-Our paid certificate course can help you prepare for software jobs.
-
-Enroll today and get 60% off. This is a promotional learning email and not a company shortlist, interview, assignment, or offer.
-
-Great Learning Team`,
-  },
-];
+type DashboardPanel = "feed" | "analysis" | "dashboard";
 
 const PIPELINE_STAGES = [
   "Applied",
@@ -268,35 +52,36 @@ const normalizeStage = (stage: string | null | undefined) =>
 const getDeadlineDisplay = (deadline: string | null, deadlineText: string | null) => {
   if (!deadline) return deadlineText || null;
   const deadlineDate = new Date(deadline);
+  if (Number.isNaN(deadlineDate.getTime())) return deadlineText || null;
+
   if (isPast(deadlineDate)) {
-    return `⚠️ EXPIRED — ${deadlineText || "deadline passed"}`;
+    return `EXPIRED - ${deadlineText || "deadline passed"}`;
   }
+
   const hoursLeft = differenceInHours(deadlineDate, new Date());
   if (hoursLeft < 24) {
-    return `🔴 ${hoursLeft}h left — ${deadlineText || "deadline today"}`;
-  } else if (hoursLeft < 48) {
-    return `🟠 ${Math.floor(hoursLeft / 24)}d left — ${deadlineText || "deadline tomorrow"}`;
-  } else {
-    return `🟡 ${formatDistanceToNow(deadlineDate, { addSuffix: true })} — ${deadlineText || ""}`;
+    return `${hoursLeft}h left - ${deadlineText || "deadline today"}`;
   }
+  if (hoursLeft < 48) {
+    return `${Math.floor(hoursLeft / 24)}d left - ${deadlineText || "deadline tomorrow"}`;
+  }
+  return `${formatDistanceToNow(deadlineDate, { addSuffix: true })} - ${
+    deadlineText || "upcoming deadline"
+  }`;
 };
 
-interface EmailAnalysis {
-  is_placement_related: boolean;
-  company: string | null;
-  role: string | null;
-  stage: string;
-  deadline: string | null;
-  deadline_text: string | null;
-  action_required: boolean;
-  action_description: string | null;
-  urgency: string;
-  contact_email: string | null;
-  important_links?: string[];
-  confidence: number;
-  summary: string;
-  reply_draft: string | null;
-}
+const getPlatform = (email?: EmailItem) => {
+  const haystack = `${email?.from || ""} ${email?.subject || ""}`.toLowerCase();
+  if (haystack.includes("internshala")) return "InternShala";
+  if (haystack.includes("linkedin")) return "LinkedIn";
+  if (haystack.includes("naukri")) return "Naukri";
+  if (haystack.includes("unstop") || haystack.includes("dare2compete")) return "Unstop";
+  if (haystack.includes("placement")) return "Campus";
+  return "Direct";
+};
+
+const getPanelClass = (panel: DashboardPanel, activePanel: DashboardPanel) =>
+  `${activePanel === panel ? "flex" : "hidden"} md:flex`;
 
 export default function Dashboard() {
   const [emails, setEmails] = useState<EmailItem[]>([]);
@@ -306,14 +91,18 @@ export default function Dashboard() {
   const [analyzing, setAnalyzing] = useState(false);
   const [showReply, setShowReply] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadingApps, setLoadingApps] = useState(true);
   const [gmailStatus, setGmailStatus] = useState<{
     connected: boolean;
     email: string | null;
   }>({ connected: false, email: null });
   const [scanningGmail, setScanningGmail] = useState(false);
+  const [scanNotice, setScanNotice] = useState<string | null>(null);
+  const [activePanel, setActivePanel] = useState<DashboardPanel>("feed");
 
   const analyzedEmails = Object.values(analysisByEmail);
   const placementAnalyses = analyzedEmails.filter((item) => item.is_placement_related);
+
   const stageCounts = PIPELINE_STAGES.reduce<Record<string, number>>((acc, stage) => {
     acc[stage] = 0;
     return acc;
@@ -337,14 +126,25 @@ export default function Dashboard() {
     filtered: analyzedEmails.length - placementAnalyses.length,
   };
 
-  const loadDemoEmails = () => {
-    setEmails(DEMO_EMAILS);
-    setSelectedEmail(null);
-    setAnalysis(null);
-    setAnalysisByEmail({});
-    setShowReply(false);
-    setError(null);
-  };
+  const analytics = useMemo(() => {
+    const responseRate =
+      stats.total > 0 ? Math.round((stats.shortlisted / stats.total) * 100) : 0;
+
+    const platformCounts = emails.reduce<Record<string, number>>((acc, email) => {
+      const emailAnalysis = analysisByEmail[email.id];
+      if (!emailAnalysis?.is_placement_related) return acc;
+      const platform = getPlatform(email);
+      acc[platform] = (acc[platform] || 0) + 1;
+      return acc;
+    }, {});
+
+    return {
+      responseRate,
+      platforms: Object.entries(platformCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4),
+    };
+  }, [analysisByEmail, emails, stats.shortlisted, stats.total]);
 
   useEffect(() => {
     const loadGmailStatus = async () => {
@@ -360,7 +160,64 @@ export default function Dashboard() {
         console.error("Gmail status error:", error);
       }
     };
+
+    const loadApplications = async () => {
+      try {
+        setLoadingApps(true);
+        const response = await fetch("/api/applications");
+        if (!response.ok) return;
+        const data = await response.json();
+
+        if (data.success) {
+          const analysisMap: Record<string, EmailAnalysis> = {};
+          const emailItems: EmailItem[] = [];
+
+          data.applications.forEach((app: any) => {
+            const id = app.emailId ? `gmail-${app.emailId}` : `db-${app.id}`;
+            const importantLinks = Array.isArray(app.importantLinks)
+              ? app.importantLinks
+              : [];
+
+            analysisMap[id] = {
+              is_placement_related: true,
+              company: app.company,
+              role: app.role,
+              stage: app.stage,
+              deadline: app.deadline,
+              deadline_text: app.deadlineText,
+              action_required: app.actionRequired,
+              action_description: app.actionDescription,
+              urgency: app.urgency,
+              contact_email: app.contactEmail,
+              confidence: app.confidence,
+              summary: app.summary || "",
+              reply_draft: null,
+              important_links: importantLinks,
+            };
+
+            emailItems.push({
+              id,
+              from: app.fromEmail || "",
+              subject: app.subject || app.company,
+              preview: app.summary || "",
+              time: new Date(app.receivedAt || app.createdAt).toLocaleDateString(),
+              urgent: app.actionRequired || app.urgency === "HIGH",
+              content: app.rawEmail || "",
+            });
+          });
+
+          setEmails(emailItems);
+          setAnalysisByEmail(analysisMap);
+        }
+      } catch (error) {
+        console.error("Error loading applications:", error);
+      } finally {
+        setLoadingApps(false);
+      }
+    };
+
     loadGmailStatus();
+    loadApplications();
   }, []);
 
   const connectGmail = () => {
@@ -373,6 +230,7 @@ export default function Dashboard() {
     setSelectedEmail(null);
     setAnalysis(null);
     setShowReply(false);
+    setScanNotice(null);
 
     try {
       const response = await fetch("/api/gmail/scan", { method: "POST" });
@@ -387,11 +245,40 @@ export default function Dashboard() {
         nextAnalysis[item.email.id] = item.analysis;
       });
 
-      setEmails(nextEmails);
-      setAnalysisByEmail(nextAnalysis);
+      setEmails((prev) => {
+        const existingIds = new Set(prev.map((email) => email.id));
+        const newEmails = nextEmails.filter((email) => !existingIds.has(email.id));
+        return [...newEmails, ...prev];
+      });
+      setAnalysisByEmail((prev) => ({ ...prev, ...nextAnalysis }));
+
+      const placementCount =
+        typeof result.placementCount === "number"
+          ? result.placementCount
+          : Object.values(nextAnalysis).filter((item) => item.is_placement_related)
+              .length;
+      const filteredCount =
+        typeof result.filteredCount === "number"
+          ? result.filteredCount
+          : Object.values(nextAnalysis).filter((item) => !item.is_placement_related)
+              .length;
+
+      const firstActionable = nextEmails.find(
+        (email) => nextAnalysis[email.id]?.is_placement_related
+      );
+      if (firstActionable) {
+        setSelectedEmail(firstActionable);
+        setAnalysis(nextAnalysis[firstActionable.id]);
+        setActivePanel("analysis");
+      }
+
+      setScanNotice(
+        `Scan complete: ${placementCount} opportunities found, ${filteredCount} filtered.`
+      );
     } catch (error) {
       console.error("Gmail scan error:", error);
       setError(error instanceof Error ? error.message : "Gmail scan failed");
+      setActivePanel("analysis");
     } finally {
       setScanningGmail(false);
     }
@@ -399,10 +286,17 @@ export default function Dashboard() {
 
   const analyzeEmail = async (email: EmailItem) => {
     setSelectedEmail(email);
+    setActivePanel("analysis");
+
     if (analysisByEmail[email.id]) {
       setAnalysis(analysisByEmail[email.id]);
       setShowReply(false);
       setError(null);
+      return;
+    }
+
+    if (!email.content) {
+      setError("Email content is not available for re-analysis");
       return;
     }
 
@@ -458,427 +352,511 @@ export default function Dashboard() {
     return colors[stage] || "text-gray-400";
   };
 
-  return (
-    <div className="h-screen overflow-hidden bg-[#0a0a0f] text-white flex flex-col">
+  const getStageBadgeColor = (stage: string) => {
+    const colors: Record<string, string> = {
+      Shortlisted: "bg-blue-500/10 text-blue-300 border-blue-500/20",
+      Interview: "bg-purple-500/10 text-purple-300 border-purple-500/20",
+      Assignment: "bg-orange-500/10 text-orange-300 border-orange-500/20",
+      Offer: "bg-green-500/10 text-green-300 border-green-500/20",
+      Rejected: "bg-red-500/10 text-red-300 border-red-500/20",
+      Applied: "bg-white/5 text-gray-300 border-white/10",
+      Filtered: "bg-yellow-500/10 text-yellow-300 border-yellow-500/20",
+    };
+    return colors[stage] || "bg-white/5 text-gray-300 border-white/10";
+  };
 
-      {/* Header */}
-      <nav className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-white/10">
+  const feedPanel = (
+    <section className={`${getPanelClass("feed", activePanel)} min-h-0 flex-col overflow-hidden border-white/10 md:border-r`}>
+      <div className="space-y-3 border-b border-white/10 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold">
+            Email Feed
+            {emails.length > 0 && (
+              <span className="ml-2 text-xs text-gray-500">({emails.length})</span>
+            )}
+          </h2>
+          {gmailStatus.connected ? (
+            <span className="rounded-full border border-green-500/20 bg-green-500/10 px-2 py-1 text-xs text-green-300">
+              Gmail connected
+            </span>
+          ) : (
+            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-xs text-gray-400">
+              Not connected
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={connectGmail}
+            disabled={scanningGmail}
+            className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium transition hover:bg-blue-500 disabled:opacity-50"
+          >
+            {gmailStatus.connected ? "Reconnect Gmail" : "Connect Gmail"}
+          </button>
+          <button
+            onClick={scanGmail}
+            disabled={!gmailStatus.connected || scanningGmail}
+            className="rounded-lg bg-green-600 px-3 py-2 text-xs font-medium transition hover:bg-green-500 disabled:bg-white/10 disabled:text-gray-500"
+          >
+            {scanningGmail ? "Scanning..." : "Scan Gmail"}
+          </button>
+        </div>
+
+        {gmailStatus.email && (
+          <p className="truncate text-xs text-gray-500">Connected: {gmailStatus.email}</p>
+        )}
+        {scanNotice && <p className="text-xs text-blue-300">{scanNotice}</p>}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {loadingApps ? (
+          <div className="flex h-full flex-col items-center justify-center">
+            <div className="mb-3 h-6 w-6 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+            <p className="text-xs text-gray-500">Loading your applications...</p>
+          </div>
+        ) : emails.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center p-4 text-center">
+            <div className="mb-3 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-blue-300">
+              @
+            </div>
+            <p className="text-sm text-gray-400">No applications yet</p>
+            <p className="mt-1 text-xs text-gray-600">
+              Connect Gmail and scan your inbox to start tracking.
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {emails.map((email) => {
+              const emailAnalysis = analysisByEmail[email.id];
+              const badgeLabel = emailAnalysis
+                ? emailAnalysis.is_placement_related
+                  ? normalizeStage(emailAnalysis.stage)
+                  : "Filtered"
+                : null;
+
+              return (
+                <button
+                  key={email.id}
+                  onClick={() => analyzeEmail(email)}
+                  className={`block w-full p-4 text-left transition hover:bg-white/5 ${
+                    selectedEmail?.id === email.id
+                      ? "border-l-2 border-blue-500 bg-white/5"
+                      : "border-l-2 border-transparent"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex items-center gap-2">
+                        {email.urgent && (
+                          <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-xs text-red-400">
+                            URGENT
+                          </span>
+                        )}
+                        {badgeLabel && (
+                          <span
+                            className={`rounded border px-1.5 py-0.5 text-xs ${getStageBadgeColor(
+                              badgeLabel
+                            )}`}
+                          >
+                            {badgeLabel}
+                          </span>
+                        )}
+                        <span className="truncate text-xs text-gray-500">{email.from}</span>
+                      </div>
+                      <p className="truncate text-sm font-medium">{email.subject}</p>
+                      <p className="mt-0.5 truncate text-xs text-gray-500">{email.preview}</p>
+                    </div>
+                    <span className="whitespace-nowrap text-xs text-gray-600">{email.time}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+
+  const analysisPanel = (
+    <section className={`${getPanelClass("analysis", activePanel)} min-h-0 flex-col overflow-hidden border-white/10 md:border-r`}>
+      <div className="border-b border-white/10 p-4">
+        <h2 className="text-sm font-semibold">AI Analysis</h2>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        {!selectedEmail && !analyzing && (
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <div className="mb-4 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-blue-300">
+              AI
+            </div>
+            <p className="text-sm text-gray-400">Select an email to see details</p>
+            <p className="mt-1 text-xs text-gray-600">
+              Click any scanned email to view its extracted placement details.
+            </p>
+          </div>
+        )}
+
+        {analyzing && (
+          <div className="flex h-full flex-col items-center justify-center">
+            <div className="mb-4 h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+            <p className="text-sm text-gray-400">Analyzing with AI...</p>
+          </div>
+        )}
+
+        {error && !analyzing && (
+          <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4">
+            <p className="text-sm font-medium text-red-300">Analysis failed</p>
+            <p className="mt-1 text-xs text-red-200/80">{error}</p>
+          </div>
+        )}
+
+        {analysis && !analyzing && !analysis.is_placement_related && (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-yellow-300">
+                Filtered out
+              </p>
+              <p className="mt-2 text-sm text-gray-200">
+                This email does not look like a real placement opportunity.
+              </p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <p className="mb-1 text-xs text-gray-400">AI Summary</p>
+              <p className="text-sm">{analysis.summary}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-lg border border-white/10 bg-white/5 p-2">
+                <p className="text-gray-500">Classification</p>
+                <p className="font-medium text-yellow-300">Not placement</p>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-white/5 p-2">
+                <p className="text-gray-500">Confidence</p>
+                <p className="font-medium text-blue-300">{analysis.confidence}%</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {analysis && !analyzing && analysis.is_placement_related && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span
+                className={`rounded border px-2 py-1 text-xs font-bold ${getUrgencyColor(
+                  analysis.urgency
+                )}`}
+              >
+                {analysis.urgency} URGENCY
+              </span>
+              <span className="text-xs text-gray-400">{analysis.confidence}% confidence</span>
+            </div>
+
+            <div className="h-1.5 w-full rounded-full bg-white/10">
+              <div
+                className="h-1.5 rounded-full bg-blue-500 transition-all"
+                style={{ width: `${analysis.confidence}%` }}
+              />
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <div className="mb-3 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/20 text-sm font-bold text-blue-300">
+                  Co
+                </div>
+                <div>
+                  <p className="font-semibold">{analysis.company || "Unknown company"}</p>
+                  <p className="text-sm text-gray-400">{analysis.role || "Role not found"}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg bg-white/5 p-2">
+                  <p className="text-gray-500">Stage</p>
+                  <p className={`font-medium ${getStageColor(analysis.stage)}`}>
+                    {analysis.stage}
+                  </p>
+                </div>
+                {(analysis.deadline || analysis.deadline_text) && (
+                  <div className="rounded-lg bg-white/5 p-2">
+                    <p className="text-gray-500">Deadline</p>
+                    <p className="text-xs font-medium text-orange-400">
+                      {getDeadlineDisplay(analysis.deadline, analysis.deadline_text)}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {analysis.important_links && analysis.important_links.length > 0 && (
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3">
+                <p className="mb-2 text-xs text-blue-300">Important Links</p>
+                <div className="space-y-1">
+                  {analysis.important_links.map((link) => (
+                    <a
+                      key={link}
+                      href={link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block truncate text-xs text-blue-400 hover:text-blue-300"
+                    >
+                      {link}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <p className="mb-1 text-xs text-gray-400">AI Summary</p>
+              <p className="text-sm">{analysis.summary}</p>
+            </div>
+
+            {analysis.action_required && (
+              <div className="rounded-xl border border-orange-500/20 bg-orange-500/10 p-3">
+                <p className="mb-1 text-xs font-medium text-orange-400">Action Required</p>
+                <p className="text-sm text-gray-300">{analysis.action_description}</p>
+              </div>
+            )}
+
+            {analysis.reply_draft && (
+              <div>
+                <button
+                  onClick={() => setShowReply(!showReply)}
+                  className="w-full rounded-lg bg-blue-600 py-2 text-sm font-medium transition hover:bg-blue-500"
+                >
+                  {showReply ? "Hide" : "View"} AI Reply Draft
+                </button>
+                {showReply && (
+                  <div className="mt-2 rounded-xl border border-white/10 bg-white/5 p-3">
+                    <p className="mb-2 text-xs text-gray-400">Draft Reply:</p>
+                    <p className="whitespace-pre-wrap text-xs text-gray-200">
+                      {analysis.reply_draft}
+                    </p>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(analysis.reply_draft || "")}
+                      className="mt-2 text-xs text-blue-400 hover:text-blue-300"
+                    >
+                      Copy to clipboard
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+
+  const dashboardPanel = (
+    <section className={`${getPanelClass("dashboard", activePanel)} min-h-0 flex-col overflow-y-auto`}>
+      <div className="border-b border-white/10 p-4">
+        <h2 className="text-sm font-semibold">Pipeline Dashboard</h2>
+      </div>
+
+      <div className="space-y-4 p-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3">
+            <div className="text-2xl font-bold text-blue-400">{stats.total}</div>
+            <div className="mt-1 text-xs text-gray-400">Total Applications</div>
+          </div>
+          <div className="rounded-xl border border-orange-500/20 bg-orange-500/10 p-3">
+            <div className="text-2xl font-bold text-orange-400">{stats.actionNeeded}</div>
+            <div className="mt-1 text-xs text-gray-400">Action Needed</div>
+          </div>
+          <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-3">
+            <div className="text-2xl font-bold text-green-400">{stats.shortlisted}</div>
+            <div className="mt-1 text-xs text-gray-400">Shortlisted+</div>
+          </div>
+          <div className="rounded-xl border border-purple-500/20 bg-purple-500/10 p-3">
+            <div className="text-2xl font-bold text-purple-400">{stats.interviews}</div>
+            <div className="mt-1 text-xs text-gray-400">Interviews</div>
+          </div>
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3">
+            <div className="text-2xl font-bold text-emerald-400">{stats.offers}</div>
+            <div className="mt-1 text-xs text-gray-400">Offers</div>
+          </div>
+          <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-3">
+            <div className="text-2xl font-bold text-yellow-400">{stats.filtered}</div>
+            <div className="mt-1 text-xs text-gray-400">Filtered</div>
+          </div>
+        </div>
+
+        {Object.values(analysisByEmail).some(
+          (item) => item.deadline && !isPast(new Date(item.deadline))
+        ) && (
+          <div>
+            <h3 className="mb-3 text-xs uppercase tracking-wider text-gray-400">
+              Upcoming Deadlines
+            </h3>
+            <div className="space-y-2">
+              {Object.values(analysisByEmail)
+                .filter(
+                  (item) =>
+                    item.is_placement_related &&
+                    item.deadline &&
+                    !isPast(new Date(item.deadline))
+                )
+                .sort(
+                  (a, b) =>
+                    new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime()
+                )
+                .slice(0, 3)
+                .map((item, index) => (
+                  <div key={index} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                    <div className="mb-1 flex items-center justify-between gap-3">
+                      <span className="truncate text-sm font-medium">{item.company}</span>
+                      <span className="whitespace-nowrap text-xs text-orange-400">
+                        {differenceInHours(new Date(item.deadline!), new Date()) < 24
+                          ? `${differenceInHours(new Date(item.deadline!), new Date())}h left`
+                          : `${Math.floor(
+                              differenceInHours(new Date(item.deadline!), new Date()) / 24
+                            )}d left`}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500">{item.deadline_text}</p>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <h3 className="mb-3 text-xs uppercase tracking-wider text-gray-400">
+            Pipeline Stages
+          </h3>
+          {PIPELINE_STAGES.map((stage) => (
+            <div key={stage} className="flex items-center justify-between border-b border-white/5 py-2">
+              <span className="text-sm text-gray-300">{stage}</span>
+              <span className="text-sm font-medium text-gray-500">{stageCounts[stage]}</span>
+            </div>
+          ))}
+        </div>
+
+        <div>
+          <h3 className="mb-3 text-xs uppercase tracking-wider text-gray-400">Analytics</h3>
+          <div className="space-y-3 rounded-xl border border-white/10 bg-white/5 p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-300">Response Rate</span>
+              <span className="text-sm font-semibold text-blue-300">
+                {analytics.responseRate}%
+              </span>
+            </div>
+            <div className="h-2 rounded-full bg-white/10">
+              <div
+                className="h-2 rounded-full bg-blue-500"
+                style={{ width: `${analytics.responseRate}%` }}
+              />
+            </div>
+
+            <div className="pt-2">
+              <p className="mb-2 text-xs text-gray-500">Stage Breakdown</p>
+              <div className="space-y-2">
+                {PIPELINE_STAGES.map((stage) => {
+                  const count = stageCounts[stage];
+                  const width = stats.total > 0 ? Math.max(4, (count / stats.total) * 100) : 0;
+                  return (
+                    <div key={stage} className="grid grid-cols-[86px_1fr_24px] items-center gap-2">
+                      <span className="truncate text-xs text-gray-400">{stage}</span>
+                      <div className="h-2 rounded-full bg-white/10">
+                        <div
+                          className="h-2 rounded-full bg-blue-500/80"
+                          style={{ width: `${width}%` }}
+                        />
+                      </div>
+                      <span className="text-right text-xs text-gray-500">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <p className="mb-2 text-xs text-gray-500">Best Platforms</p>
+              {analytics.platforms.length === 0 ? (
+                <p className="text-xs text-gray-600">No platform data yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {analytics.platforms.map(([platform, count]) => (
+                    <div key={platform} className="flex items-center justify-between text-xs">
+                      <span className="text-gray-300">{platform}</span>
+                      <span className="text-gray-500">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {analysis && (
+          <div>
+            <h3 className="mb-3 text-xs uppercase tracking-wider text-gray-400">
+              Recent Analysis
+            </h3>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <div className="mb-1 flex items-center justify-between gap-3">
+                <span className="truncate text-sm font-medium">
+                  {analysis.is_placement_related
+                    ? analysis.company || "Unknown company"
+                    : "Filtered email"}
+                </span>
+                <span
+                  className={`text-xs ${
+                    analysis.is_placement_related ? getStageColor(analysis.stage) : "text-yellow-300"
+                  }`}
+                >
+                  {analysis.is_placement_related ? analysis.stage : "Filtered"}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500">{analysis.summary}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+
+  return (
+    <div className="flex h-screen flex-col overflow-hidden bg-[#0a0a0f] text-white">
+      <nav className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-4 md:px-6">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-sm font-bold">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500 text-sm font-bold">
             J
           </div>
-          <span className="font-bold text-lg">JobSync AI</span>
+          <span className="text-lg font-bold">JobSync AI</span>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-xs text-gray-500">Powered by AI</span>
+          <span className="hidden text-xs text-gray-500 sm:inline">Powered by AI</span>
           <UserButton />
         </div>
       </nav>
 
-      {/* Three Panel Layout */}
-      <div className="grid grid-cols-3 flex-1 min-h-0">
-
-        {/* LEFT — Email Feed */}
-        <div className="min-h-0 border-r border-white/10 flex flex-col overflow-hidden">
-          <div className="p-4 border-b border-white/10 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="font-semibold text-sm">
-                Email Feed
-                {emails.length > 0 && (
-                  <span className="ml-2 text-xs text-gray-500">
-                    ({emails.length})
-                  </span>
-                )}
-              </h2>
-              {gmailStatus.connected ? (
-                <span className="rounded-full border border-green-500/20 bg-green-500/10 px-2 py-1 text-xs text-green-300">
-                  Gmail connected
-                </span>
-              ) : (
-                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-xs text-gray-400">
-                  Demo mode
-                </span>
-              )}
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                onClick={loadDemoEmails}
-                disabled={scanningGmail}
-                className="bg-white/10 hover:bg-white/15 disabled:opacity-50 px-3 py-2 rounded-lg text-xs font-medium transition"
-              >
-                Demo Emails
-              </button>
-              <button
-                onClick={connectGmail}
-                disabled={scanningGmail}
-                className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 px-3 py-2 rounded-lg text-xs font-medium transition"
-              >
-                {gmailStatus.connected ? "Reconnect" : "Connect Gmail"}
-              </button>
-              <button
-                onClick={scanGmail}
-                disabled={!gmailStatus.connected || scanningGmail}
-                className="bg-green-600 hover:bg-green-500 disabled:bg-white/10 disabled:text-gray-500 px-3 py-2 rounded-lg text-xs font-medium transition"
-              >
-                {scanningGmail ? "Scanning..." : "Scan Gmail"}
-              </button>
-            </div>
-
-            {gmailStatus.email && (
-              <p className="truncate text-xs text-gray-500">
-                Connected inbox: {gmailStatus.email}
-              </p>
-            )}
-          </div>
-
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            {emails.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center p-4">
-                <div className="text-4xl mb-3">📧</div>
-                <p className="text-gray-400 text-sm">No emails loaded yet</p>
-                <p className="text-gray-600 text-xs mt-1">
-                  Load demo emails or connect Gmail to scan your real inbox.
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-white/5">
-                {emails.map((email) => (
-                  <div
-                    key={email.id}
-                    onClick={() => analyzeEmail(email)}
-                    className={`p-4 cursor-pointer hover:bg-white/5 transition ${
-                      selectedEmail?.id === email.id
-                        ? "bg-white/5 border-l-2 border-blue-500"
-                        : ""
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          {email.urgent && (
-                            <span className="text-xs bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded">
-                              URGENT
-                            </span>
-                          )}
-                          <span className="text-xs text-gray-500 truncate">
-                            {email.from}
-                          </span>
-                        </div>
-                        <p className="text-sm font-medium truncate">
-                          {email.subject}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate mt-0.5">
-                          {email.preview}
-                        </p>
-                      </div>
-                      <span className="text-xs text-gray-600 whitespace-nowrap">
-                        {email.time}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* MIDDLE — AI Analysis */}
-        <div className="min-h-0 border-r border-white/10 flex flex-col overflow-hidden">
-          <div className="p-4 border-b border-white/10">
-            <h2 className="font-semibold text-sm">AI Analysis</h2>
-          </div>
-
-          <div className="flex-1 min-h-0 overflow-y-auto p-4">
-            {!selectedEmail && !analyzing && (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <div className="text-5xl mb-4">🤖</div>
-                <p className="text-gray-400 text-sm">Select an email to analyze</p>
-                <p className="text-gray-600 text-xs mt-1">
-                  AI will extract all placement details
-                </p>
-              </div>
-            )}
-
-            {analyzing && (
-              <div className="flex flex-col items-center justify-center h-full">
-                <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p className="text-gray-400 text-sm">Analyzing with AI...</p>
-              </div>
-            )}
-
-            {error && !analyzing && (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/10 p-4">
-                <p className="text-sm font-medium text-red-300">Analysis failed</p>
-                <p className="mt-1 text-xs text-red-200/80">{error}</p>
-              </div>
-            )}
-
-            {analysis && !analyzing && !analysis.is_placement_related && (
-              <div className="space-y-4">
-                <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/10 p-4">
-                  <p className="text-xs font-bold uppercase tracking-wide text-yellow-300">
-                    Filtered out
-                  </p>
-                  <p className="mt-2 text-sm text-gray-200">
-                    This email does not look like a real placement opportunity.
-                  </p>
-                </div>
-                <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-                  <p className="text-xs text-gray-400 mb-1">AI Summary</p>
-                  <p className="text-sm">{analysis.summary}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="bg-white/5 rounded-lg p-2 border border-white/10">
-                    <p className="text-gray-500">Classification</p>
-                    <p className="font-medium text-yellow-300">Not placement</p>
-                  </div>
-                  <div className="bg-white/5 rounded-lg p-2 border border-white/10">
-                    <p className="text-gray-500">Confidence</p>
-                    <p className="font-medium text-blue-300">{analysis.confidence}%</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {analysis && !analyzing && analysis.is_placement_related && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className={`text-xs font-bold px-2 py-1 rounded border ${getUrgencyColor(analysis.urgency)}`}>
-                    {analysis.urgency} URGENCY
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    {analysis.confidence}% confidence
-                  </span>
-                </div>
-
-                <div className="w-full bg-white/10 rounded-full h-1.5">
-                  <div
-                    className="bg-blue-500 h-1.5 rounded-full transition-all"
-                    style={{ width: `${analysis.confidence}%` }}
-                  ></div>
-                </div>
-
-                <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center text-lg">
-                      🏢
-                    </div>
-                    <div>
-                      <p className="font-semibold">{analysis.company || "Unknown company"}</p>
-                      <p className="text-sm text-gray-400">{analysis.role || "Role not found"}</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="bg-white/5 rounded-lg p-2">
-                      <p className="text-gray-500">Stage</p>
-                      <p className={`font-medium ${getStageColor(analysis.stage)}`}>
-                        {analysis.stage}
-                      </p>
-                    </div>
-                    {(analysis.deadline || analysis.deadline_text) && (
-                      <div className="bg-white/5 rounded-lg p-2">
-                        <p className="text-gray-500">Deadline</p>
-                        <p className="font-medium text-orange-400 text-xs">
-                          {getDeadlineDisplay(analysis.deadline, analysis.deadline_text)}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {analysis.important_links && analysis.important_links.length > 0 && (
-                  <div className="bg-blue-500/10 rounded-xl p-3 border border-blue-500/20">
-                    <p className="text-xs text-blue-300 mb-2">Important Links</p>
-                    <div className="space-y-1">
-                      {analysis.important_links.map((link) => (
-                        
-                       <a   key={link}
-                          href={link}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block truncate text-xs text-blue-400 hover:text-blue-300"
-                        >
-                          {link}
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="bg-white/5 rounded-xl p-3 border border-white/10">
-                  <p className="text-xs text-gray-400 mb-1">AI Summary</p>
-                  <p className="text-sm">{analysis.summary}</p>
-                </div>
-
-                {analysis.action_required && (
-                  <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-3">
-                    <p className="text-xs text-orange-400 font-medium mb-1">
-                      ⚡ Action Required
-                    </p>
-                    <p className="text-sm text-gray-300">
-                      {analysis.action_description}
-                    </p>
-                  </div>
-                )}
-
-                {analysis.reply_draft && (
-                  <div>
-                    <button
-                      onClick={() => setShowReply(!showReply)}
-                      className="w-full bg-blue-600 hover:bg-blue-500 py-2 rounded-lg text-sm font-medium transition"
-                    >
-                      ✍️ {showReply ? "Hide" : "View"} AI Reply Draft
-                    </button>
-                    {showReply && (
-                      <div className="mt-2 bg-white/5 border border-white/10 rounded-xl p-3">
-                        <p className="text-xs text-gray-400 mb-2">Draft Reply:</p>
-                        <p className="text-xs text-gray-200 whitespace-pre-wrap">
-                          {analysis.reply_draft}
-                        </p>
-                        <button
-                          onClick={() =>
-                            navigator.clipboard.writeText(analysis.reply_draft || "")
-                          }
-                          className="mt-2 text-xs text-blue-400 hover:text-blue-300"
-                        >
-                          Copy to clipboard
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* RIGHT — Dashboard */}
-        <div className="min-h-0 flex flex-col overflow-y-auto">
-          <div className="p-4 border-b border-white/10">
-            <h2 className="font-semibold text-sm">Pipeline Dashboard</h2>
-          </div>
-
-          <div className="p-4 space-y-4">
-            {/* Stats */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
-                <div className="text-2xl font-bold text-blue-400">{stats.total}</div>
-                <div className="text-xs text-gray-400 mt-1">Total Applications</div>
-              </div>
-              <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-3">
-                <div className="text-2xl font-bold text-orange-400">{stats.actionNeeded}</div>
-                <div className="text-xs text-gray-400 mt-1">Action Needed</div>
-              </div>
-              <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3">
-                <div className="text-2xl font-bold text-green-400">{stats.shortlisted}</div>
-                <div className="text-xs text-gray-400 mt-1">Shortlisted+</div>
-              </div>
-              <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl p-3">
-                <div className="text-2xl font-bold text-purple-400">{stats.interviews}</div>
-                <div className="text-xs text-gray-400 mt-1">Interviews</div>
-              </div>
-              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
-                <div className="text-2xl font-bold text-emerald-400">{stats.offers}</div>
-                <div className="text-xs text-gray-400 mt-1">Offers</div>
-              </div>
-              <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3">
-                <div className="text-2xl font-bold text-yellow-400">{stats.filtered}</div>
-                <div className="text-xs text-gray-400 mt-1">Filtered</div>
-              </div>
-            </div>
-
-            {/* Upcoming Deadlines */}
-            {Object.values(analysisByEmail).some(
-              (a) => a.deadline && !isPast(new Date(a.deadline))
-            ) && (
-              <div>
-                <h3 className="text-xs text-gray-400 uppercase tracking-wider mb-3">
-                  Upcoming Deadlines
-                </h3>
-                <div className="space-y-2">
-                  {Object.values(analysisByEmail)
-                    .filter(
-                      (a) =>
-                        a.is_placement_related &&
-                        a.deadline &&
-                        !isPast(new Date(a.deadline))
-                    )
-                    .sort(
-                      (a, b) =>
-                        new Date(a.deadline!).getTime() -
-                        new Date(b.deadline!).getTime()
-                    )
-                    .slice(0, 3)
-                    .map((a, i) => (
-                      <div
-                        key={i}
-                        className="bg-white/5 border border-white/10 rounded-xl p-3"
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium">{a.company}</span>
-                          <span className="text-xs text-orange-400">
-                            {differenceInHours(new Date(a.deadline!), new Date()) < 24
-                              ? `${differenceInHours(new Date(a.deadline!), new Date())}h left`
-                              : `${Math.floor(differenceInHours(new Date(a.deadline!), new Date()) / 24)}d left`}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500">{a.deadline_text}</p>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-
-            {/* Pipeline Stages */}
-            <div>
-              <h3 className="text-xs text-gray-400 uppercase tracking-wider mb-3">
-                Pipeline Stages
-              </h3>
-              {PIPELINE_STAGES.map((stage) => (
-                <div
-                  key={stage}
-                  className="flex items-center justify-between py-2 border-b border-white/5"
-                >
-                  <span className="text-sm text-gray-300">{stage}</span>
-                  <span className="text-sm font-medium text-gray-500">
-                    {stageCounts[stage]}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Recent Activity */}
-            {analysis && (
-              <div>
-                <h3 className="text-xs text-gray-400 uppercase tracking-wider mb-3">
-                  Recent Analysis
-                </h3>
-                <div className="bg-white/5 border border-white/10 rounded-xl p-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium">
-                      {analysis.is_placement_related
-                        ? analysis.company || "Unknown company"
-                        : "Filtered email"}
-                    </span>
-                    <span
-                      className={`text-xs ${
-                        analysis.is_placement_related
-                          ? getStageColor(analysis.stage)
-                          : "text-yellow-300"
-                      }`}
-                    >
-                      {analysis.is_placement_related ? analysis.stage : "Filtered"}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500">{analysis.summary}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+      <div className="grid grid-cols-3 border-b border-white/10 md:hidden">
+        {[
+          ["feed", "Inbox"],
+          ["analysis", "Analysis"],
+          ["dashboard", "Dashboard"],
+        ].map(([panel, label]) => (
+          <button
+            key={panel}
+            onClick={() => setActivePanel(panel as DashboardPanel)}
+            className={`px-3 py-3 text-xs font-medium ${
+              activePanel === panel
+                ? "border-b-2 border-blue-500 text-white"
+                : "text-gray-500"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
+
+      <main className="min-h-0 flex-1 md:grid md:grid-cols-3">
+        {feedPanel}
+        {analysisPanel}
+        {dashboardPanel}
+      </main>
     </div>
   );
 }

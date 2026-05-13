@@ -3,6 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { analyzeEmailWithAI } from "@/lib/analyze-email";
 import { fetchGmailEmailsList, fetchGmailEmailsByIds, getValidGmailAccessToken } from "@/lib/gmail";
 
+const parseDate = (value: string | null | undefined) => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
 export async function GET(request: Request) {
   // Security check — only Vercel cron can call this
   const authHeader = request.headers.get("authorization");
@@ -38,7 +44,7 @@ export async function GET(request: Request) {
 
         let messageIds = listResponse.messages.map(m => m.id);
         let existingApps = await prisma.application.findMany({
-          where: { emailId: { in: messageIds } },
+          where: { userId: connection.userId, emailId: { in: messageIds } },
           select: { emailId: true },
         });
         let existingIds = new Set(existingApps.map(a => a.emailId));
@@ -54,7 +60,7 @@ export async function GET(request: Request) {
 
           messageIds = listResponse.messages.map(m => m.id);
           existingApps = await prisma.application.findMany({
-            where: { emailId: { in: messageIds } },
+            where: { userId: connection.userId, emailId: { in: messageIds } },
             select: { emailId: true },
           });
           existingIds = new Set(existingApps.map(a => a.emailId));
@@ -94,8 +100,18 @@ export async function GET(request: Request) {
                 update: {
                   stage: analysis.stage || "Unknown",
                   urgency: analysis.urgency || "LOW",
+                  deadline: parseDate(analysis.deadline),
+                  deadlineText: analysis.deadline_text,
                   actionRequired: analysis.action_required,
+                  actionDescription: analysis.action_description,
+                  contactEmail: analysis.contact_email,
+                  importantLinks: analysis.important_links || [],
+                  confidence: analysis.confidence || 0,
                   summary: analysis.summary,
+                  fromEmail: email.from,
+                  subject: email.subject,
+                  receivedAt: parseDate(email.date),
+                  rawEmail: email.body,
                 },
                 create: {
                   userId: connection.userId,
@@ -104,14 +120,18 @@ export async function GET(request: Request) {
                   role: analysis.role,
                   stage: analysis.stage || "Unknown",
                   urgency: analysis.urgency || "LOW",
-                  deadline: null,
+                  deadline: parseDate(analysis.deadline),
+                  deadlineText: analysis.deadline_text,
                   actionRequired: analysis.action_required,
                   actionDescription: analysis.action_description,
                   contactEmail: analysis.contact_email,
+                  importantLinks: analysis.important_links || [],
                   confidence: analysis.confidence || 0,
                   summary: analysis.summary,
                   fromEmail: email.from,
                   subject: email.subject,
+                  receivedAt: parseDate(email.date),
+                  rawEmail: email.body,
                 },
               });
               scanned++;
