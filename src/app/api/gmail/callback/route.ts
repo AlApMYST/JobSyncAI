@@ -37,18 +37,30 @@ export async function GET(request: NextRequest) {
       clerkUser?.emailAddresses[0]?.emailAddress ||
       profile.emailAddress;
 
-    const dbUser = await prisma.user.upsert({
+    const existingUserByClerkId = await prisma.user.findUnique({
       where: { clerkId: userId },
-      update: {
-        email: primaryEmail,
-        name: clerkUser?.fullName || clerkUser?.firstName || null,
-      },
-      create: {
-        clerkId: userId,
-        email: primaryEmail,
-        name: clerkUser?.fullName || clerkUser?.firstName || null,
-      },
     });
+    const existingUserByEmail = await prisma.user.findUnique({
+      where: { email: primaryEmail },
+    });
+
+    const dbUser =
+      existingUserByClerkId ||
+      (existingUserByEmail
+        ? await prisma.user.update({
+            where: { id: existingUserByEmail.id },
+            data: {
+              clerkId: userId,
+              name: clerkUser?.fullName || clerkUser?.firstName || null,
+            },
+          })
+        : await prisma.user.create({
+            data: {
+              clerkId: userId,
+              email: primaryEmail,
+              name: clerkUser?.fullName || clerkUser?.firstName || null,
+            },
+          }));
 
     const expiresAt = new Date(
       Date.now() + (tokens.expires_in || 3600) * 1000
