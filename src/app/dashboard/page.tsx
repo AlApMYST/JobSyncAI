@@ -326,10 +326,10 @@ const filteredEmails = emails.filter((email) => {
       </nav>
 
       {/* Three Panel Layout */}
-      <div className="grid grid-cols-3 flex-1 min-h-0">
+      <div className="grid grid-cols-1 md:grid-cols-3 flex-1 min-h-0 overflow-hidden">
 
         {/* LEFT — Email Feed */}
-        <div className="min-h-0 border-r border-white/10 flex flex-col overflow-hidden">
+        <div className="min-h-0 border-r border-white/10 flex flex-col overflow-hidden md:block">
           <div className="p-4 border-b border-white/10 space-y-3">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
@@ -464,7 +464,7 @@ const filteredEmails = emails.filter((email) => {
         </div>
 
         {/* MIDDLE — AI Analysis */}
-        <div className="min-h-0 border-r border-white/10 flex flex-col overflow-hidden">
+        <div className="hidden md:flex min-h-0 border-r border-white/10 flex-col overflow-hidden">
           <div className="p-4 border-b border-white/10">
             <h2 className="font-semibold text-sm">AI Analysis</h2>
           </div>
@@ -635,7 +635,7 @@ const filteredEmails = emails.filter((email) => {
         </div>
 
         {/* RIGHT — Pipeline Dashboard */}
-        <div className="min-h-0 flex flex-col overflow-y-auto">
+        <div className="hidden md:flex min-h-0 flex-col overflow-y-auto">
           <div className="p-4 border-b border-white/10">
             <h2 className="font-semibold text-sm">Pipeline Dashboard</h2>
           </div>
