@@ -9,15 +9,33 @@ const parseDate = (value: string | null | undefined) => {
   return Number.isNaN(date.getTime()) ? null : date;
 };
 
+// ── Telegram alert ────────────────────────────────────────────────────────────
+async function sendTelegramAlert(message: string) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: message,
+        parse_mode: "HTML",
+      }),
+    });
+  } catch (e) {
+    console.error("Telegram alert failed:", e);
+  }
+}
+
 export async function GET(request: Request) {
-  // Security check — only Vercel cron can call this
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    // Get all connected Gmail accounts
     const connections = await prisma.gmailConnection.findMany({
       select: { clerkId: true, userId: true },
     });
@@ -35,7 +53,7 @@ export async function GET(request: Request) {
 
         const accessToken = await getValidGmailAccessToken(connection.clerkId);
 
-        // 1. Try recent emails
+        // 1. Try recent emails first
         let listResponse = await fetchGmailEmailsList({
           accessToken,
           query: "newer_than:2d",
@@ -66,7 +84,6 @@ export async function GET(request: Request) {
           existingIds = new Set(existingApps.map(a => a.emailId));
           newIds = messageIds.filter(id => !existingIds.has(id));
 
-          // Save next page token for next cron run
           if (listResponse.nextPageToken) {
             await prisma.gmailConnection.update({
               where: { clerkId: connection.clerkId },
@@ -134,7 +151,30 @@ export async function GET(request: Request) {
                   rawEmail: email.body,
                 },
               });
+
               scanned++;
+
+              // ── Send Telegram alert for HIGH or MEDIUM urgency ────────────
+              if (analysis.urgency === "HIGH" || analysis.urgency === "MEDIUM") {
+                const urgencyEmoji = analysis.urgency === "HIGH" ? "🚨" : "⚠️";
+                const deadlineText = analysis.deadline_text
+                  ? `\n⏰ <b>Deadline:</b> ${analysis.deadline_text}`
+                  : "";
+                const actionText = analysis.action_required && analysis.action_description
+                  ? `\n⚡ <b>Action:</b> ${analysis.action_description}`
+                  : "";
+
+                const message =
+                  `${urgencyEmoji} <b>${analysis.urgency} URGENCY — JobSync AI</b>\n\n` +
+                  `🏢 <b>Company:</b> ${analysis.company || "Unknown"}\n` +
+                  `💼 <b>Role:</b> ${analysis.role || "Not specified"}\n` +
+                  `📊 <b>Stage:</b> ${analysis.stage || "Unknown"}` +
+                  deadlineText +
+                  actionText +
+                  `\n\n🔗 job-sync-ai-iota.vercel.app`;
+
+                await sendTelegramAlert(message);
+              }
             }
 
             await new Promise(resolve => setTimeout(resolve, 4000));

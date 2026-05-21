@@ -13,6 +13,26 @@ const parseDate = (value: string | null | undefined) => {
 const previewFrom = (body: string, snippet: string) =>
   (snippet || body).replace(/\s+/g, " ").trim().slice(0, 140);
 
+// ── Telegram alert ────────────────────────────────────────────────────────────
+async function sendTelegramAlert(message: string) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text: message,
+        parse_mode: "HTML",
+      }),
+    });
+  } catch (e) {
+    console.error("Telegram alert failed:", e);
+  }
+}
+
 export async function POST() {
   const { userId } = await auth();
 
@@ -34,19 +54,28 @@ export async function POST() {
     }
 
     const accessToken = await getValidGmailAccessToken(userId);
+
     const listResponse = await fetchGmailEmailsList({
       accessToken,
-      query: "newer_than:30d",
-      maxResults: 5,
+      query: "newer_than:60d",
+      maxResults: 20,
     });
 
-    const messageIds = listResponse.messages.map(m => m.id);
-    const emails =
-      messageIds.length > 0
-        ? await fetchGmailEmailsByIds(accessToken, messageIds.slice(0, 3))
-        : [];
-    
+    // Get already processed email IDs from DB
+    const existing = await prisma.application.findMany({
+      where: { userId: connection.userId },
+      select: { emailId: true },
+    });
+    const existingIds = new Set(existing.map(e => e.emailId));
+
+    // Only process emails NOT already in DB
+    const newIds = listResponse.messages.map(m => m.id).filter(id => !existingIds.has(id));
+    const emails = newIds.length > 0
+      ? await fetchGmailEmailsByIds(accessToken, newIds.slice(0, 3))
+      : [];
+
     const items = [];
+
     for (const email of emails) {
       const analysis = await analyzeEmailWithAI({
         emailContent: email.body.slice(0, 1500),
@@ -54,6 +83,7 @@ export async function POST() {
         emailFrom: email.from,
         emailDate: email.date,
       });
+
       await new Promise(resolve => setTimeout(resolve, 4000));
 
       if (analysis.is_placement_related) {
@@ -103,6 +133,28 @@ export async function POST() {
             rawEmail: email.body,
           },
         });
+
+        // ── Send Telegram alert for HIGH or MEDIUM urgency ──────────────────
+        if (analysis.urgency === "HIGH" || analysis.urgency === "MEDIUM") {
+          const urgencyEmoji = analysis.urgency === "HIGH" ? "🚨" : "⚠️";
+          const deadlineText = analysis.deadline_text
+            ? `\n⏰ <b>Deadline:</b> ${analysis.deadline_text}`
+            : "";
+          const actionText = analysis.action_required && analysis.action_description
+            ? `\n⚡ <b>Action:</b> ${analysis.action_description}`
+            : "";
+
+          const message =
+            `${urgencyEmoji} <b>${analysis.urgency} URGENCY — JobSync AI</b>\n\n` +
+            `🏢 <b>Company:</b> ${analysis.company || "Unknown"}\n` +
+            `💼 <b>Role:</b> ${analysis.role || "Not specified"}\n` +
+            `📊 <b>Stage:</b> ${analysis.stage || "Unknown"}` +
+            deadlineText +
+            actionText +
+            `\n\n🔗 job-sync-ai-iota.vercel.app`;
+
+          await sendTelegramAlert(message);
+        }
       }
 
       items.push({
@@ -122,10 +174,8 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       count: items.length,
-      placementCount: items.filter((item) => item.analysis.is_placement_related)
-        .length,
-      filteredCount: items.filter((item) => !item.analysis.is_placement_related)
-        .length,
+      placementCount: items.filter((item) => item.analysis.is_placement_related).length,
+      filteredCount: items.filter((item) => !item.analysis.is_placement_related).length,
       items,
     });
   } catch (error: any) {
