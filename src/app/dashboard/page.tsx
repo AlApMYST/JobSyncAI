@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { UserButton } from "@clerk/nextjs";
 import { formatDistanceToNow, isPast, differenceInHours } from "date-fns";
 import Image from "next/image";
+import Link from "next/link";
 
 interface EmailItem {
   id: string;
@@ -652,6 +653,12 @@ export default function Dashboard() {
           <span className="font-bold text-[17px] text-gray-900">JobSync AI</span>
         </div>
         <div className="flex items-center gap-4">
+          <Link
+            href="/"
+            className="rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:border-blue-200 hover:text-blue-600"
+          >
+            Home
+          </Link>
           <span className="hidden sm:flex items-center gap-1.5 text-xs text-gray-400 font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
             Powered by AI
